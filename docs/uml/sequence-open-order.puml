@@ -1,0 +1,48 @@
+@startuml
+title Open Order - POST /api/orders
+
+skinparam shadowing false
+
+actor Client
+boundary OrderController
+control OrderService
+entity RestaurantTableRepository as TableRepository
+entity UserRepository
+entity OrderRepository
+entity RestaurantTable
+entity Order
+database PostgreSQL
+
+Client -> OrderController : POST /api/orders\nBearer JWT + {tableId, items[]}
+note right of OrderController : @Valid checks the table and initial items
+OrderController -> OrderService : openOrder(request, principal.name)
+activate OrderService
+note right of OrderService : @Transactional begins
+
+OrderService -> TableRepository : findByIdForUpdate(tableId)
+TableRepository -> PostgreSQL : SELECT table ... FOR UPDATE
+PostgreSQL --> TableRepository : table row / none
+
+alt table not found
+  OrderService --> OrderController : ResourceNotFoundException
+  OrderController --> Client : 404 error response
+else table OCCUPIED
+  OrderService -> RestaurantTable : getStatus()
+  OrderService --> OrderController : TableOccupiedException
+  OrderController --> Client : 409 error response
+else table FREE
+  OrderService -> UserRepository : findByUsername(principal.name)
+  UserRepository -> PostgreSQL : SELECT user
+  PostgreSQL --> UserRepository : waiter / none
+  OrderService -> OrderService : verify role == WAITER
+  OrderService -> RestaurantTable : occupy()
+  OrderService -> Order : new(table, waiter) + initial items\nstatus=OPEN, total=0.00
+  OrderService -> OrderRepository : save(order)
+  OrderRepository -> PostgreSQL : INSERT order + UPDATE table\non transaction flush/commit
+  PostgreSQL --> OrderRepository : persisted
+  OrderService --> OrderController : OrderResponse
+  OrderController --> Client : 201 Created
+end
+deactivate OrderService
+
+@enduml

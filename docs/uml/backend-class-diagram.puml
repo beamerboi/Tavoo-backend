@@ -1,0 +1,124 @@
+@startuml
+title Tavoo Backend - Layered Class Diagram
+
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam shadowing false
+hide empty members
+
+package controller {
+  class MenuController <<RestController>>
+  class LocationController <<RestController>>
+  class RestaurantTableController <<RestController>>
+  class OrderController <<RestController>>
+}
+
+package service {
+  class MenuService <<Service>> {
+    + getAvailableMenuItems()
+    + createMenuItem(request)
+  }
+  class LocationService <<Service>> {
+    + getLocations()
+    + createLocation(request)
+  }
+  class RestaurantTableService <<Service>> {
+    + getTables()
+    + createTable(request)
+  }
+  class OrderService <<Service>> {
+    + openOrder(request)
+    + addItem(orderId, request)
+    + payOrder(orderId)
+    + getOrder(orderId)
+  }
+}
+
+package repository {
+  interface MenuItemRepository
+  interface LocationRepository
+  interface RestaurantTableRepository {
+    + findByIdForUpdate(id)
+  }
+  interface UserRepository
+  interface OrderRepository {
+    + findByIdForUpdate(id)
+  }
+  interface "JpaRepository<T, Long>" as JpaRepository <<Spring Data>>
+}
+
+package dto {
+  class CreateMenuItemRequest <<record>>
+  class MenuItemResponse <<record>>
+  class CreateLocationRequest <<record>>
+  class LocationResponse <<record>>
+  class CreateRestaurantTableRequest <<record>>
+  class RestaurantTableResponse <<record>>
+  class CreateOrderRequest <<record>>
+  class AddOrderItemRequest <<record>>
+  class OrderResponse <<record>>
+  class OrderItemResponse <<record>>
+  class ApiErrorResponse <<record>>
+}
+
+package entity {
+  class User <<Entity>>
+  class MenuItem <<Entity>>
+  class Location <<Entity>>
+  class RestaurantTable <<Entity>>
+  class Order <<Entity>>
+  class OrderItem <<Entity>>
+}
+
+package exception {
+  class GlobalExceptionHandler <<RestControllerAdvice>>
+  class ResourceNotFoundException
+  class BusinessRuleException
+  class TableOccupiedException
+  class InvalidOrderStateException
+}
+
+MenuController --> MenuService
+LocationController --> LocationService
+RestaurantTableController --> RestaurantTableService
+OrderController --> OrderService
+
+MenuController ..> CreateMenuItemRequest
+MenuController ..> MenuItemResponse
+LocationController ..> CreateLocationRequest
+LocationController ..> LocationResponse
+RestaurantTableController ..> CreateRestaurantTableRequest
+RestaurantTableController ..> RestaurantTableResponse
+OrderController ..> CreateOrderRequest
+OrderController ..> AddOrderItemRequest
+OrderController ..> OrderResponse
+
+MenuService --> MenuItemRepository
+LocationService --> LocationRepository
+RestaurantTableService --> RestaurantTableRepository
+RestaurantTableService --> LocationRepository
+OrderService --> OrderRepository
+OrderService --> RestaurantTableRepository
+OrderService --> UserRepository
+OrderService --> MenuItemRepository
+
+MenuItemRepository --|> JpaRepository
+LocationRepository --|> JpaRepository
+RestaurantTableRepository --|> JpaRepository
+UserRepository --|> JpaRepository
+OrderRepository --|> JpaRepository
+
+MenuItemRepository ..> MenuItem
+LocationRepository ..> Location
+RestaurantTableRepository ..> RestaurantTable
+UserRepository ..> User
+OrderRepository ..> Order
+Order *-- OrderItem
+Location "1" -- "0..*" RestaurantTable
+
+GlobalExceptionHandler ..> ApiErrorResponse
+TableOccupiedException --|> BusinessRuleException
+InvalidOrderStateException --|> BusinessRuleException
+service ..> exception : throws
+
+@enduml

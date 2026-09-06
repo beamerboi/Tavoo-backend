@@ -1,0 +1,47 @@
+@startuml
+title Add Item - PUT /api/orders/{id}/items
+
+skinparam shadowing false
+
+actor Client
+boundary OrderController
+control OrderService
+entity OrderRepository
+entity MenuItemRepository
+entity Order
+entity OrderItem
+database PostgreSQL
+
+Client -> OrderController : PUT /api/orders/{id}/items\n{menuItemId, quantity, notes}
+note right of OrderController : @Valid checks IDs, quantity, notes length
+OrderController -> OrderService : addItem(orderId, request)
+activate OrderService
+note right of OrderService : @Transactional begins
+
+OrderService -> OrderService : verify quantity > 0
+OrderService -> OrderRepository : findByIdForUpdate(orderId)
+OrderRepository -> PostgreSQL : SELECT order ... FOR UPDATE
+PostgreSQL --> OrderRepository : order / none
+
+alt order not found
+  OrderService --> OrderController : ResourceNotFoundException
+  OrderController --> Client : 404 error response
+else order is not OPEN
+  OrderService --> OrderController : InvalidOrderStateException
+  OrderController --> Client : 409 error response
+else order OPEN
+  OrderService -> MenuItemRepository : findById(menuItemId)
+  MenuItemRepository -> PostgreSQL : SELECT menu item
+  PostgreSQL --> MenuItemRepository : item / none
+  OrderService -> OrderService : verify available and price > 0
+  OrderService -> Order : addItem(menuItem, quantity, notes)
+  Order -> OrderItem : new OrderItem(...)
+  OrderService -> OrderRepository : save(order)
+  OrderRepository -> PostgreSQL : INSERT order_item on cascade flush
+  PostgreSQL --> OrderRepository : persisted
+  OrderService --> OrderController : OrderResponse
+  OrderController --> Client : 200 OK
+end
+deactivate OrderService
+
+@enduml

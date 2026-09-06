@@ -1,0 +1,32 @@
+@startuml
+title Tavoo Backend - Package Diagram
+
+skinparam packageStyle rectangle
+skinparam shadowing false
+
+package "org.tavoo" as root
+package "org.tavoo.controller" as controller
+package "org.tavoo.service" as service
+package "org.tavoo.repository" as repository
+package "org.tavoo.entity" as entity
+package "org.tavoo.dto" as dto
+package "org.tavoo.exception" as exception
+
+package "Spring Web / Validation" as web <<framework>>
+package "Spring Data JPA / Hibernate" as jpa <<framework>>
+database "PostgreSQL" as database
+
+root ..> controller : component scans
+controller --> service : delegates
+controller --> dto : request / response
+controller ..> exception : errors handled by advice
+service --> repository : persistence ports
+service --> entity : business state
+service --> dto : maps API models
+service ..> exception : raises domain errors
+repository --> entity : persists
+controller ..> web
+repository ..> jpa
+jpa --> database : JDBC
+
+@enduml

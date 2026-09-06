@@ -1,0 +1,129 @@
+@startuml
+title Tavoo Backend - Domain Class Diagram
+
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+hide empty methods
+
+enum Role {
+  ADMIN
+  WAITER
+  KITCHEN
+}
+
+enum MenuCategory {
+  FOOD
+  DESSERT
+  BEVERAGE
+  ALCOHOL
+}
+
+enum CourseType {
+  ANTIPASTO
+  PRIMO
+  SECONDO
+  STEAK
+  DESSERT
+  BEVERAGE
+}
+
+enum PreparationStatus {
+  ORDERED
+  IN_PREPARATION
+  READY
+  SERVED
+}
+
+enum TableStatus {
+  FREE
+  OCCUPIED
+}
+
+enum LocationType {
+  INSIDE
+  OUTSIDE
+}
+
+enum OrderStatus {
+  OPEN
+  PAID
+}
+
+class User <<Entity: app_users>> {
+  - id : Long
+  - username : String
+  - password : String
+  - role : Role
+  - orders : List<Order>
+  + addOrder(order : Order) : void
+}
+
+class MenuItem <<Entity: menu_items>> {
+  - id : Long
+  - name : String
+  - price : BigDecimal
+  - category : MenuCategory
+  - courseType : CourseType
+  - available : boolean
+  - orderItems : List<OrderItem>
+}
+
+class Location <<Entity: locations>> {
+  - id : Long
+  - name : String
+  - type : LocationType
+  - tables : List<RestaurantTable>
+}
+
+class RestaurantTable <<Entity: restaurant_tables>> {
+  - id : Long
+  - tableNumber : int
+  - seatCount : int
+  - location : Location
+  - status : TableStatus
+  - orders : List<Order>
+  + occupy() : void
+  + free() : void
+  + addOrder(order : Order) : void
+}
+
+class Order <<Entity: customer_orders>> {
+  - id : Long
+  - table : RestaurantTable
+  - waiter : User
+  - status : OrderStatus
+  - totalAmount : BigDecimal
+  - items : List<OrderItem>
+  + addItem(menuItem, quantity, notes) : void
+  + markPaid(totalAmount : BigDecimal) : void
+}
+
+class OrderItem <<Entity: order_items>> {
+  - id : Long
+  - order : Order
+  - menuItem : MenuItem
+  - quantity : int
+  - notes : String
+  - preparationStatus : PreparationStatus
+}
+
+User "1" <-- "0..*" Order : waiter\nwaiter_id FK
+Location "1" <-- "0..*" RestaurantTable : location\nlocation_id FK
+RestaurantTable "1" <-- "0..*" Order : table\nrestaurant_table_id FK
+Order "1" *-- "0..*" OrderItem : items\ncascade ALL, orphan removal
+MenuItem "1" <-- "0..*" OrderItem : menuItem\nmenu_item_id FK
+
+User --> Role
+MenuItem --> MenuCategory
+MenuItem --> CourseType
+OrderItem --> PreparationStatus
+RestaurantTable --> TableStatus
+Location --> LocationType
+Order --> OrderStatus
+
+note right of Order
+  totalAmount uses NUMERIC(12,2).
+  New orders are OPEN with 0.00 total.
+end note
+
+@enduml

@@ -1,0 +1,52 @@
+@startuml
+title Pay Order - POST /api/orders/{id}/pay
+
+skinparam shadowing false
+
+actor Client
+boundary OrderController
+control OrderService
+entity OrderRepository
+entity Order
+entity OrderItem
+entity RestaurantTable
+database PostgreSQL
+
+Client -> OrderController : POST /api/orders/{id}/pay
+OrderController -> OrderService : payOrder(orderId)
+activate OrderService
+note right of OrderService : @Transactional begins
+
+OrderService -> OrderRepository : findByIdForUpdate(orderId)
+OrderRepository -> PostgreSQL : SELECT order ... FOR UPDATE
+PostgreSQL --> OrderRepository : order / none
+
+alt order not found
+  OrderService --> OrderController : ResourceNotFoundException
+  OrderController --> Client : 404 error response
+else order is not OPEN
+  OrderService --> OrderController : InvalidOrderStateException
+  OrderController --> Client : 409 error response
+else order OPEN
+  loop each OrderItem
+    OrderService -> OrderItem : get menu item, price, category, quantity
+    OrderService -> OrderService : subtotal = price * quantity
+    alt FOOD
+      OrderService -> OrderService : tax = subtotal * 0.10
+    else ALCOHOL
+      OrderService -> OrderService : tax = subtotal * 0.15
+    end
+    OrderService -> OrderService : total += subtotal + tax
+  end
+  OrderService -> OrderService : round total to scale 2, HALF_UP
+  OrderService -> Order : markPaid(total)
+  OrderService -> RestaurantTable : free()
+  OrderService -> OrderRepository : save(order)
+  OrderRepository -> PostgreSQL : UPDATE order + UPDATE table\non transaction flush/commit
+  PostgreSQL --> OrderRepository : committed atomically
+  OrderService --> OrderController : OrderResponse
+  OrderController --> Client : 200 OK
+end
+deactivate OrderService
+
+@enduml
